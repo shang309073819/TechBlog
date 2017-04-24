@@ -31,7 +31,7 @@ dispach(fetchTodos).then(function (json) {
 }).catch(function (error) {
   //handle error
 });
-```å
+```
 
 ##### 同构渲染
 
