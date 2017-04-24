@@ -1,4 +1,4 @@
-#### Redux高级特性
+#### 九问Redux
 
 ------
 
@@ -13,86 +13,40 @@
 
     Q:什么是Redux中间件？
     A:它可以用于在action被触发和action到达处理函数reducer之前，对action进行处理。
-    Q:怎么Redue中间件？
+    Q:怎么使用Redux中间件？
     A:可以在创建store时，通过applyMiddleware函数提供redux的中间件：createStore(todosApp,applyMiddleware(someMiddleWare))
+    Q:如何处理异步action?
+    A:redux提供thunkMiddleware的中间件使得redux可以派发一个函数而不是一个普通action对象，可以使用dispach函数像派发普通action一样，派发异步函数，异步函数的返回值还可以是Promise，其返回值会透传过dispch函数。
 
 
-
-
-
-redux官方提供了thunkMiddleware的中间件，用于处理异步action，它使得redux可以派发一个函数而不是一个普通action对象，在该函数中我们可以进行异步网络请求：
-
+```js
 var fetchTodos = function () {
-    return function (dispatch) {
-        return fetch('/todos');
-    }
-}
-我们可以使用dispach函数像派发普通action一样，派发异步函数，异步函数的返回值还可以是Promise，其返回值会透传过dispch函数。
+  return function (dispatch) {
+    return fetch('/todos');
+  }
+};
+dispach(fetchTodos).then(function (json) {
+  //派发同步aciton，用于更新应用状态，初始化todo列表
+  dispatch(initTodos(json.data || []));
+}).catch(function (error) {
+  //handle error
+});
+```å
 
-dispach(fetchTodos)
-  .then(function(json){
-      //handle response
-  })
-  .catch(function(error){
-      //handle error
-  });
-通过网络加载数据，并在数据到达时更新应用状态是一种比较常见的应用场景，对于这种场景，一种最优雅的方案：
+##### 同构渲染
 
-1. 派发异步函数，用于进行网络请求
-2. 在网络请求完成时，派发同步action用于更新应用状态
-   可以用如下代码表示：
+    Q:为什么会有同构？
+    A:纯前端渲染面临的两个大的问题：不可避免出现白屏，等待异步加载，体验变差；SEO优化问题，没有服务端渲染，蜘蛛抓取不到数据，无SEO可言。
+    Q:React是如何Server Rendering的？
+    A:React中提出了虚拟DOM的概念，虚拟DOM以对象树的形式保存在内存中，与真实DOM相映射，通过ReactDOM的Render方法，渲染到页面中，并维护DOM的创建、销毁、更新等过程，以最高的效率，得到相同的DOM结构。不同于ReactDOM.render将DOM结构渲染到页面，React中还提供了另外两个方法：ReactDOMServer.renderToString 和 ReactDOMServer.renderToStaticMarkup 。二者将虚拟DOM渲染为一段字符串，代表了一段完整的HTML结构。
+    Q:什么是同构?
+    A:在服务端和客户端中，使用完全一致的React组件，这样能够保证两个端中渲染出的DOM结构是完全一致的，而在这种情况下，客户端在渲染过程中，会判断已有的DOM结构是否和即将渲染出的结构相同，若相同，不重新渲染DOM结构，只是进行事件绑定。
+    Q:理解Redux同构?
+    A:关于Redux服务端渲染，参看官方文档。其中最重要的一点就是，在服务端和客户端保持store一致。store的初始状态在Server端生成，为了保持两个端中store的一致，官方示例中通过在页面插入脚本的方式，写入store初始值到window：
 
-var fetchTodos = function () {
-    return function (dispatch) {
-        return fetch('/todos')
-            .then(function (json) {
-                //派发同步aciton，用于更新应用状态，初始化todo列表
-                dispatch(initTodos(json.data || []));
-            }).catch(function () {
-                //派发同步action，用于更新应用状态，设置加载失败标志
-                dispatch(failLoadedTodos());
-            });
-    }
-}
-(3) 同构渲染
-
-前后端同构，应用首屏由后端直出是近年来比较流行的性能优化方案，redux对此也有完善的支持。基本流程是：
-
-1. 服务端初始化state
-2. 将服务端state传递到应用的页面端
-3. 页面端用服务端传递的状态初始化应用state
-   在遵从这个基本流程的情况下，服务端和页面端的使用方法开发方法基本一致，如下是服务端代码：
-
- store.dispatch(todoActions.loadInitTodos()).then(function () {
-        var contentHtml = React.renderToString(
-            <Provider store={store}>
-                {function () {
-                    return <TodoApp />;
-                }}
-            </Provider>
-        );
-        var initialState = JSON.stringify(store.getState());
-        res.render('index.ejs', {contentHtml: contentHtml, initialState: initialState});
-    }).catch(function(error){
-        res.json({errMsg: 'internal error'})
-    });
-上述服务端代码通过派发初始化异步函数更新应用状态，该异步函数返回一个Promise，Promise对象会透传过dispach函数。在Promise处理完成后，我们得到应用的最新状态。最后我们将由React输出的HTML字符串contentHtml和初始化应用状态initialState，传递到模板文件index.ejs中，模板文件如下：
-
-<html>
-  <head>
-    <title>Redux TodoMVC</title>
-  </head>
-  <body>
-    <div class="todoapp" id="root"><%-contentHtml%></div>
-  </body>
-  <script>
-    window.__INITIAL_STATE__ =  <%-initialState%>;
-  </script>
-</html>
-通过浏览器的window对象，我们将服务端的初始状态传递到了页面端。
-
+```js
+//通过浏览器的window对象，我们将服务端的初始状态传递到了页面端。
+window.__INITIAL_STATE__ =  <%-initialState%>;
 var todosApp = combineReducers({filter: filter, todos: todos});
-var store = createStore(  todosApp,
-                          window.__INITIAL_STATE__,
-                          applyMiddleware(thunkMiddleware, reduxLogger())
-                        );
+var store = createStore(todosApp, window.__INITIAL_STATE__, applyMiddleware(thunkMiddleware, reduxLogger()));
+```
