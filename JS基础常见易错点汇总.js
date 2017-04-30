@@ -42,3 +42,10 @@ console.log(getValue());
 //闭包会在父函数外部，改变父函数内部变量的值。所以，如果你把父函数当做（object)使用，把闭包当作它的公有方法（Public Method)，把内部变量当作它的私有属性（Private value），这时一定要小心，不要随便改变父函数内部变量的值。
 
 
+Object.isExtensible()//检测对象是否可扩展。
+Object.preventExtensions()//阻止对象扩展。
+
+
+
+
+
